@@ -166,12 +166,12 @@ class BasePPOTrainer(ABC):
     async def _broadcast_to_vllm(self):
         if self.strategy.args.vllm_enable_sleep:
             from openrlhf.trainer.ray.vllm_engine import batch_vllm_engine_call
-            batch_vllm_engine_call(self.vllm_engines, "wake_up")
+            await batch_vllm_engine_call(self.vllm_engines, "wake_up")
 
         await asyncio.gather(*self.actor_model_group.async_run_method(method_name="broadcast_to_vllm"))
 
         if self.strategy.args.vllm_enable_sleep:
-            batch_vllm_engine_call(self.vllm_engines, "sleep")
+            await batch_vllm_engine_call(self.vllm_engines, "sleep")
 
     async def save_logs_and_checkpoints(self, args, global_step, step_bar, logs_dict={}, client_states={}):
         if global_step % args.logging_steps == 0:

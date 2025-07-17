@@ -374,7 +374,7 @@ class PolicyModelActor(BaseModelActor):
                 os.environ["NCCL_CUMEM_ENABLE"] = "0"
 
         self._setup_distributed(strategy)
-        print(f"policy model global rank: {os.getenv("GLOBAL_RANK")}")
+        print("policy model global rank:", os.getenv("GLOBAL_RANK"))
 
         actor = Actor(
             pretrain,

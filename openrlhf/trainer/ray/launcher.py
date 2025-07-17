@@ -117,7 +117,7 @@ class ReferenceModelActor(BaseModelActor):
     def init_model_from_pretrained(self, strategy: DeepspeedStrategy, pretrain):
         self._setup_distributed(strategy)
         print("88"*100)
-        print(f"ref model global rank: {os.getenv("GLOBAL_RANK")}")
+        print("ref model global rank:", os.getenv("GLOBAL_RANK"))
         print("88"*100)
         model = Actor(
             pretrain,
@@ -166,7 +166,7 @@ class RewardModelActor(BaseModelActor):
     def init_model_from_pretrained(self, strategy: DeepspeedStrategy, pretrain):
         self._setup_distributed(strategy)
         print("88"*100)
-        print(f"reward model global rank: {os.getenv("GLOBAL_RANK")}")
+        print("reward model global rank:", os.getenv("GLOBAL_RANK"))
         print("88"*100)
         model = get_llm_for_sequence_regression(
             pretrain,

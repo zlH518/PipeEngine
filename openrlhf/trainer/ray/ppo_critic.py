@@ -151,7 +151,7 @@ class CriticModelActor(BaseModelActor):
 
         self._setup_distributed(strategy)
         print("88"*100)
-        print(f"critic model global rank: {os.getenv("GLOBAL_RANK")}")
+        print("critic model global rank:", os.getenv("GLOBAL_RANK"))
         print("88"*100)
         critic = get_llm_for_sequence_regression(
             pretrain,

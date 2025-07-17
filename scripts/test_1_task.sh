@@ -23,10 +23,10 @@ python3 -m openrlhf.cli.train_multi_tasks \
 --actor_num_gpus_per_node 1 \
 --vllm_num_engines 1 \
 --vllm_tensor_parallel_size 1 \
---vllm_gpu_memory_utilization 0.8 \
+--vllm_gpu_memory_utilization 0.5 \
 --advantage_estimator group_norm \
---pretrain /workspace/models/HF/Qwen3-0.6B \
---reward_pretrain /workspace/models/HF/Qwen3-0.6B \
+--pretrain /volume/pt-train/models/Qwen3-0.6B \
+--reward_pretrain /volume/pt-train/models/Qwen3-0.6B \
 --save_path /root/data/experiments/final/qwen3-06b-rlhf \
 --ckpt_path /root/data/experiments/ckpt/qwen3-06b-rlhf \
 --save_hf_ckpt \
@@ -44,7 +44,7 @@ python3 -m openrlhf.cli.train_multi_tasks \
 --actor_learning_rate 5e-7 \
 --critic_learning_rate 9e-6 \
 --init_kl_coef 1e-3 \
---prompt_data /workspace/data/PipeRLHF/gsm8k/train.parquet \
+--prompt_data /root/data/gsm8k/train.parquet \
 --input_key prompt \
 --apply_chat_template \
 --normalize_reward \

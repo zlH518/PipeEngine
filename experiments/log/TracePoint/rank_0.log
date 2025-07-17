@@ -1,0 +1,156 @@
+1752753549156979,0,0,1,load-ckpt-1,B
+1752753549157104,0,0,1,load-ckpt-1,E
+1752753549157218,0,0,1,load-ckpt-2,B
+1752753549157324,0,0,1,load-ckpt-2,E
+1752753549158991,0,0,1,number of samples:0,B
+1752753549159056,0,0,1,rollout-samples-1,B
+1752753549159040,0,0,1,number of samples:0,B
+1752753549159132,0,0,1,wake up vllm,B
+1752753549159101,0,0,1,rollout-samples-2,B
+1752753549159191,0,0,1,wake up vllm,B
+1752753549159568,0,0,1,wake up vllm,E
+1752753549159611,0,0,1,vllm generate,B
+1752753549159663,0,0,1,wake up vllm,E
+1752753549159708,0,0,1,vllm generate,B
+1752753551565550,0,0,1,pre-processing data,B
+1752753551567857,0,0,1,pre-processing data,B
+1752753551570464,0,0,1,pre-processing data,E
+1752753551570521,0,0,1,send request to vllm,B
+1752753551572280,0,0,1,pre-processing data,E
+1752753551572339,0,0,1,send request to vllm,B
+1752753555410734,0,0,1,send request to vllm,E
+1752753555410842,0,0,1,get outputs from response,B
+1752753555412433,0,0,1,get outputs from response,E
+1752753555412477,0,0,1,post-processing-data,B
+1752753555413655,0,0,1,post-processing-data,E
+1752753555413771,0,0,1,vllm generate,E
+1752753555413809,0,0,1,sleep vllm,B
+1752753555414025,0,0,1,sleep vllm,E
+1752753555414061,0,0,1,rollout-samples-1,E
+1752753555414080,0,0,1,number of samples:0,E
+1752753555414312,0,0,1,make_experiences-1,B
+1752753555414378,0,0,1,pre-processing-data,B
+1752753555414873,0,0,1,pre-processing-data,E
+1752753555414909,0,0,1,actor-critic-reward-ref-forward,B
+1752753555414948,0,0,1,pre-process-make-experience,B
+1752753555415089,0,0,1,pre-process-make-experience,E
+1752753555425144,0,0,1,actor-model-forward,B
+1752753556221193,0,0,1,actor-model-forward,E
+1752753556226950,0,0,1,actor-critic-reward-ref-forward,E
+1752753556234123,0,0,1,make_experiences-1,E
+1752753556235606,0,0,1,save-experiences-actor-critic-1,B
+1752753556240932,0,0,1,save-experiences-actor-critic-1,E
+1752753556241108,0,0,1,train-actor-critic-1,B
+1752753556310840,0,0,1,train-actor-model,B
+1752753558147059,0,0,1,train-actor-model,E
+1752753558919651,0,0,1,send request to vllm,E
+1752753558919760,0,0,1,get outputs from response,B
+1752753558921420,0,0,1,get outputs from response,E
+1752753558921466,0,0,1,post-processing-data,B
+1752753558922842,0,0,1,post-processing-data,E
+1752753558922954,0,0,1,vllm generate,E
+1752753558922989,0,0,1,sleep vllm,B
+1752753558923201,0,0,1,sleep vllm,E
+1752753558923235,0,0,1,rollout-samples-2,E
+1752753558923253,0,0,1,number of samples:0,E
+1752753558923508,0,0,1,make_experiences-2,B
+1752753558923576,0,0,1,pre-processing-data,B
+1752753558924231,0,0,1,pre-processing-data,E
+1752753558924288,0,0,1,actor-critic-reward-ref-forward,B
+1752753558924342,0,0,1,pre-process-make-experience,B
+1752753558924490,0,0,1,pre-process-make-experience,E
+1752753558935819,0,0,1,actor-model-forward,B
+1752753560141347,0,0,1,actor-model-forward,E
+1752753560146465,0,0,1,actor-critic-reward-ref-forward,E
+1752753560159337,0,0,1,make_experiences-2,E
+1752753560160153,0,0,1,save-experiences-actor-critic-2,B
+1752753560166047,0,0,1,save-experiences-actor-critic-2,E
+1752753560166254,0,0,1,train-actor-critic-2,B
+1752753560235093,0,0,1,train-actor-model,B
+1752753561541408,0,0,1,train-actor-model,E
+1752753562914473,0,0,1,broadcate-weight-to-vllm,B
+1752753564068326,0,0,1,broadcate-weight-to-vllm,E
+1752753564069361,0,0,1,train-actor-critic-1,E
+1752753564069510,0,0,1,save_train_info-1,B
+1752753564071003,0,0,1,save_train_info-1,E
+1752753564071587,0,0,1,number of samples:1,B
+1752753564071628,0,0,1,rollout-samples-1,B
+1752753564071694,0,0,1,wake up vllm,B
+1752753564071934,0,0,1,wake up vllm,E
+1752753564071974,0,0,1,vllm generate,B
+1752753564072017,0,0,1,pre-processing data,B
+1752753564072843,0,0,1,pre-processing data,E
+1752753564072888,0,0,1,send request to vllm,B
+1752753566232327,0,0,1,broadcate-weight-to-vllm,B
+1752753567905302,0,0,1,broadcate-weight-to-vllm,E
+1752753567908166,0,0,1,train-actor-critic-2,E
+1752753567908276,0,0,1,save_train_info-2,B
+1752753567908877,0,0,1,save_train_info-2,E
+1752753567909320,0,0,1,number of samples:1,B
+1752753567909354,0,0,1,rollout-samples-2,B
+1752753567909406,0,0,1,wake up vllm,B
+1752753567909592,0,0,1,wake up vllm,E
+1752753567909631,0,0,1,vllm generate,B
+1752753567909669,0,0,1,pre-processing data,B
+1752753567910327,0,0,1,pre-processing data,E
+1752753567910362,0,0,1,send request to vllm,B
+1752753570270293,0,0,1,send request to vllm,E
+1752753570270453,0,0,1,get outputs from response,B
+1752753570272035,0,0,1,get outputs from response,E
+1752753570272081,0,0,1,post-processing-data,B
+1752753570273232,0,0,1,post-processing-data,E
+1752753570273374,0,0,1,vllm generate,E
+1752753570273416,0,0,1,sleep vllm,B
+1752753570273648,0,0,1,sleep vllm,E
+1752753570273688,0,0,1,rollout-samples-1,E
+1752753570273709,0,0,1,number of samples:1,E
+1752753570274155,0,0,1,make_experiences-1,B
+1752753570274233,0,0,1,pre-processing-data,B
+1752753570274666,0,0,1,pre-processing-data,E
+1752753570274707,0,0,1,actor-critic-reward-ref-forward,B
+1752753570274743,0,0,1,pre-process-make-experience,B
+1752753570274907,0,0,1,pre-process-make-experience,E
+1752753570281857,0,0,1,actor-model-forward,B
+1752753570646787,0,0,1,actor-model-forward,E
+1752753571139610,0,0,1,actor-critic-reward-ref-forward,E
+1752753571149352,0,0,1,make_experiences-1,E
+1752753571150076,0,0,1,save-experiences-actor-critic-1,B
+1752753571155058,0,0,1,save-experiences-actor-critic-1,E
+1752753571155279,0,0,1,train-actor-critic-1,B
+1752753571310948,0,0,1,train-actor-model,B
+1752753571933834,0,0,1,train-actor-model,E
+1752753572242206,0,0,1,broadcate-weight-to-vllm,B
+1752753573033403,0,0,1,broadcate-weight-to-vllm,E
+1752753573034314,0,0,1,train-actor-critic-1,E
+1752753573034607,0,0,1,save_train_info-1,B
+1752753573034952,0,0,1,save_train_info-1,E
+1752753575256426,0,0,1,send request to vllm,E
+1752753575256558,0,0,1,get outputs from response,B
+1752753575258118,0,0,1,get outputs from response,E
+1752753575258159,0,0,1,post-processing-data,B
+1752753575259215,0,0,1,post-processing-data,E
+1752753575259317,0,0,1,vllm generate,E
+1752753575259352,0,0,1,sleep vllm,B
+1752753575259620,0,0,1,sleep vllm,E
+1752753575259653,0,0,1,rollout-samples-2,E
+1752753575259671,0,0,1,number of samples:1,E
+1752753575260017,0,0,1,make_experiences-2,B
+1752753575260095,0,0,1,pre-processing-data,B
+1752753575260469,0,0,1,pre-processing-data,E
+1752753575260502,0,0,1,actor-critic-reward-ref-forward,B
+1752753575260535,0,0,1,pre-process-make-experience,B
+1752753575260655,0,0,1,pre-process-make-experience,E
+1752753575266233,0,0,1,actor-model-forward,B
+1752753575748530,0,0,1,actor-model-forward,E
+1752753576040531,0,0,1,actor-critic-reward-ref-forward,E
+1752753576052252,0,0,1,make_experiences-2,E
+1752753576052822,0,0,1,save-experiences-actor-critic-2,B
+1752753576058454,0,0,1,save-experiences-actor-critic-2,E
+1752753576058700,0,0,1,train-actor-critic-2,B
+1752753576213462,0,0,1,train-actor-model,B
+1752753576800685,0,0,1,train-actor-model,E
+1752753577097871,0,0,1,broadcate-weight-to-vllm,B
+1752753578161174,0,0,1,broadcate-weight-to-vllm,E
+1752753578164497,0,0,1,train-actor-critic-2,E
+1752753578164729,0,0,1,save_train_info-2,B
+1752753578165027,0,0,1,save_train_info-2,E
