@@ -17,7 +17,6 @@ async def main():
 
     tasks_args = []
     tasks_args.append(args)
-    print(tasks_args)
     tasks_args = [copy.deepcopy(args) for _ in range(NUM_TASKS)]
     pipeEngine = PipeEngine(tasks_args)
     await pipeEngine.run()

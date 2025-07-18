@@ -19,12 +19,13 @@ num_actor_group = 0
 
 
 class BaseDistributedActor:
-    def __init__(self, world_size, rank, master_addr, master_port, global_rank):
+    def __init__(self, world_size, rank, master_addr, master_port, global_rank, task_id):
         logging.basicConfig(
             format="%(asctime)s %(levelname)-8s %(message)s",
             level=logging.INFO,
             datefmt="%Y-%m-%d %H:%M:%S",
         )
+        self.task_id = task_id
         self._world_size = world_size
         self._rank = rank
         self._master_addr = master_addr if master_addr else self._get_current_node_ip()
@@ -115,6 +116,9 @@ class BaseModelActor(BaseDistributedActor):
 @ray.remote(num_gpus=1)
 class ReferenceModelActor(BaseModelActor):
     def init_model_from_pretrained(self, strategy: DeepspeedStrategy, pretrain):
+        tracepoint_module_setup()
+        tp = TracePoint(f"{self.task_id}: init-reference-model", "1")
+        tp.begin()
         self._setup_distributed(strategy)
         print("88"*100)
         print("ref model global rank:", os.getenv("GLOBAL_RANK"))
@@ -136,7 +140,7 @@ class ReferenceModelActor(BaseModelActor):
 
         self.model = self.strategy.prepare(model, is_rlhf=True)
         self.model.eval()
-        tracepoint_module_setup()
+        tp.end()
 
     def forward(
         self,
@@ -146,7 +150,7 @@ class ReferenceModelActor(BaseModelActor):
         return_output=False,
         packed_seq_lens: Optional[list[int]] = None,
     ) -> torch.Tensor:
-        tp = TracePoint("ref-forward", "1")
+        tp = TracePoint(f"{self.task_id}: ref-forward", "1")
         tp.begin()
         device = torch.cuda.current_device()
         with torch.no_grad():
@@ -164,6 +168,9 @@ class ReferenceModelActor(BaseModelActor):
 @ray.remote(num_gpus=1)
 class RewardModelActor(BaseModelActor):
     def init_model_from_pretrained(self, strategy: DeepspeedStrategy, pretrain):
+        tracepoint_module_setup()
+        tp = TracePoint(f"{self.task_id}: init-reward-model", "1")
+        tp.begin()
         self._setup_distributed(strategy)
         print("88"*100)
         print("reward model global rank:", os.getenv("GLOBAL_RANK"))
@@ -188,7 +195,7 @@ class RewardModelActor(BaseModelActor):
 
         self.model = self.strategy.prepare(model, is_rlhf=True)
         self.model.eval()
-        tracepoint_module_setup()
+        tp.end()
 
     def forward(
         self,
@@ -197,7 +204,7 @@ class RewardModelActor(BaseModelActor):
         packed_seq_lens=None,
         pad_sequence=False,
     ) -> torch.Tensor:
-        tp = TracePoint("reward-forward", "1")
+        tp = TracePoint(f"{self.task_id}: reward-forward", "1")
         tp.begin()
         device = torch.cuda.current_device()
         with torch.no_grad():
@@ -229,6 +236,7 @@ class RayActorGroup:
 
     def __init__(
         self,
+        task_id,
         num_nodes,
         num_gpus_per_node,
         ray_actor_type: Type[BaseModelActor],
@@ -239,6 +247,7 @@ class RayActorGroup:
         num_resources_per_node: int = None,
         offset: int = None
     ) -> None:
+        self.task_id = task_id
         self.offset = offset
         self._num_nodes = num_nodes
         self._num_gpus_per_node = num_gpus_per_node
@@ -253,7 +262,7 @@ class RayActorGroup:
         self._initiate_actors(pg, num_gpus_per_actor)
 
     def _initiate_actors(self, pg, num_gpus_per_actor):
-        tp = TracePoint("init-actor", "1")
+        tp = TracePoint(f"m-{self.task_id}: init-{self.ray_actor_type}", "1")
         tp.begin()
         world_size = self._num_nodes * self._num_gpus_per_node
         assert pg is not None
@@ -267,7 +276,7 @@ class RayActorGroup:
             scheduling_strategy=PlacementGroupSchedulingStrategy(
                 placement_group=pg, placement_group_bundle_index=reordered_bundle_indices[0]
             ),
-        ).remote(world_size, 0, None, None, self.offset)
+        ).remote(world_size, 0, None, None, self.offset, self.task_id)
         self._actor_handlers = [master_actor]
 
         # Create worker_actor
@@ -282,7 +291,7 @@ class RayActorGroup:
                         placement_group=pg,
                         placement_group_bundle_index=reordered_bundle_indices[num_gpus_per_actor*rank],
                     ),
-                ).remote(world_size, rank, master_addr, master_port, self.offset+rank)
+                ).remote(world_size, rank, master_addr, master_port, self.offset+rank, self.task_id)
                 self._actor_handlers.append(worker_actor)
         tp.end()
 

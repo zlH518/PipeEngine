@@ -66,7 +66,7 @@ def _create_placement_group(num_gpus):
 
 def create_placement_groups(args):
     """Create placement groups for actor and rollout engines."""
-
+    # TODO: 根据算法和角色计算offset，同时根据任务数量计算num_gpus_per_actor
     num_gpus = 4
     actor_offset = 0
     critic_offset = 1
@@ -81,10 +81,13 @@ def create_placement_groups(args):
     ref_pg_reordered_bundle_indices = actor_pg_reordered_bundle_indices[ref_offset:]
     reward_pg_reordered_bunlde_indices = actor_pg_reordered_bundle_indices[reward_offset:]
 
-    return {
+    pgs = {
         "actor": (pg, actor_pg_reordered_bundle_indices),
         "critic": (pg, critic_pg_reordered_bundle_indices),
         "rollout": (pg, rollout_pg_reordered_bundle_indices),
         "ref": (pg, ref_pg_reordered_bundle_indices),
         "reward": (pg, reward_pg_reordered_bunlde_indices)
     }
+    print(f"pgs: ", pgs)
+
+    return pgs

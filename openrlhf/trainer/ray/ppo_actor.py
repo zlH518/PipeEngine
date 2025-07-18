@@ -35,6 +35,7 @@ from .utils import get_physical_gpu_id
 class ActorPPOTrainer(ABC):
     def __init__(
         self,
+        task_id: int,
         strategy,
         actor: Actor,
         ema_model: Actor,
@@ -55,6 +56,7 @@ class ActorPPOTrainer(ABC):
         Args:
             vllm_engines (List, optional): vllm engines for text generation, if not specified, generate text by actor model directly. Defaults to None.
         """
+        self.task_id = task_id
         self.strategy = strategy
         self.args = strategy.args
         self.tokenizer = tokenizer
@@ -79,7 +81,7 @@ class ActorPPOTrainer(ABC):
         self.aux_loss = self.args.aux_loss_coef > 1e-8
 
         self.replay_buffer = NaiveReplayBuffer(
-            micro_train_batch_size, buffer_limit, buffer_cpu_offload, getattr(self.args, "packing_samples", False)
+            self.task_id, micro_train_batch_size, buffer_limit, buffer_cpu_offload, getattr(self.args, "packing_samples", False)
         )
 
         # Init torch group for weights sync
@@ -146,6 +148,8 @@ class ActorPPOTrainer(ABC):
         torch_dist_barrier_and_cuda_sync()
 
     def ppo_train(self, kl_ctl: float):
+        tp = TracePoint(f"{self.task_id}: actor-train-in-trainer", "1")
+        tp.begin()
         # replay buffer may be empty at first, we should rebuild at each training
         not_shuffle = self.strategy.ring_attn_group is not None or self.args.ds_tensor_parallel_size > 1
         dataloader = DataLoader(
@@ -166,11 +170,18 @@ class ActorPPOTrainer(ABC):
                 desc=f"Train epoch [{epoch + 1}/{self.max_epochs}]",
                 disable=not self.strategy.is_rank_0(),
             )
+            epoch_tp = TracePoint(f"{self.task_id}: epoch-{epoch}", "1")
+            epoch_tp.begin()
             for experience in pbar:
+                step_tp = TracePoint("f{self.task_id}: epoch-{epoch}-step-{step}", "1")
+                step_tp.begin()
                 experience.to_device(device)
                 status = self.training_step(experience, kl_ctl)
                 status["kl"] *= status["response_length"]
+                allreduce_tp = TracePoint(f"{self.task_id}: all-reduce", "1")
+                allreduce_tp.begin()
                 status = self.strategy.all_reduce(status)
+                allreduce_tp.end()
                 status["kl"] /= status["response_length"]
 
                 short_status = {
@@ -188,6 +199,8 @@ class ActorPPOTrainer(ABC):
 
                 status_list.append(status)
                 pbar.set_postfix(short_status)
+                step_tp.end()
+            epoch_tp.end()
 
         if status_list:
             status_mean = status_list[0]
@@ -196,9 +209,13 @@ class ActorPPOTrainer(ABC):
                     status_mean[k] += v
             for k in status_mean.keys():
                 status_mean[k] /= len(status_list)
+        
+        tp.end()
         return status_mean
 
     def training_step(self, experience: Experience, kl_ctl: float) -> Dict[str, float]:
+        tp = TracePoint(f"{self.task_id}: train-actor-step", "1")
+        tp.begin()
         self.actor.train()
 
         sequences = experience.sequences
@@ -269,9 +286,12 @@ class ActorPPOTrainer(ABC):
                 status[k] = torch.tensor(v, dtype=torch.float).mean().item()
             elif isinstance(v, torch.Tensor):
                 status[k] = v.float().mean().item()
+        tp.end()
         return status
 
     def _broadcast_to_vllm(self):
+        tp = TracePoint(f"{self.task_id}: broadcate-weight-to-vllm-in-trainer", "1")
+        tp.begin()
         use_prefix_cache = getattr(self.strategy.args, "enable_prefix_caching", False)
         cache_reset_refs = []
         if use_prefix_cache and torch.distributed.get_rank() == 0:
@@ -355,12 +375,15 @@ class ActorPPOTrainer(ABC):
             ray.get(cache_reset_refs)
         torch.cuda.empty_cache()
         torch_dist_barrier_and_cuda_sync()
+        tp.end()
 
 
 @ray.remote(num_gpus=1)
 class PolicyModelActor(BaseModelActor):
     def init_model_from_pretrained(self, strategy: DeepspeedStrategy, pretrain, max_steps=None, vllm_engines=None):
-        
+        tracepoint_module_setup()
+        tp = TracePoint(f"{self.task_id}: init-policy-model", "1")
+        tp.begin()
         args = strategy.args
         self.save_hf_ckpt = args.save_hf_ckpt
         self.disable_ds_ckpt = args.disable_ds_ckpt
@@ -455,6 +478,7 @@ class PolicyModelActor(BaseModelActor):
 
         # configure Trainer
         self.trainer = ActorPPOTrainer(
+            self.task_id,
             strategy,
             self.actor,
             ema_model=self.ema_model,
@@ -466,10 +490,11 @@ class PolicyModelActor(BaseModelActor):
             ema_beta=args.ema_beta,
             vllm_engines=self.vllm_engines,
         )
+        tp.end()
 
     def fit(self, kl_ctl: float = 0):
         """Train actor model with the replay buffer."""
-        tp = TracePoint("train-actor-model", "1")
+        tp = TracePoint(f"{self.task_id}: train-actor-model", "1")
         tp.begin()
         torch.cuda.empty_cache()
         self.actor.train()
@@ -498,7 +523,7 @@ class PolicyModelActor(BaseModelActor):
         packed_seq_lens=None,
     ) -> torch.Tensor:
         """Generates actor values."""
-        tp = TracePoint("actor-model-forward", "1")
+        tp = TracePoint(f"{self.task_id}: actor-model-forward", "1")
         tp.begin()
         device = torch.cuda.current_device()
         self.actor.eval()
@@ -514,7 +539,7 @@ class PolicyModelActor(BaseModelActor):
         return action_log_probs.to("cpu")
 
     def broadcast_to_vllm(self):
-        tp = TracePoint("broadcate-weight-to-vllm", "1")
+        tp = TracePoint(f"{self.task_id}: broadcate-weight-to-vllm-in-actor", "1")
         tp.begin()
         self.trainer._broadcast_to_vllm()
         tp.end()
@@ -523,13 +548,22 @@ class PolicyModelActor(BaseModelActor):
         return self.checkpoint_states
 
     def append(self, experience: Experience):
+        tp = TracePoint(f"{self.task_id}: save-experience-in-actor-reply-buffer", "1")
+        tp.begin()
         self.trainer.replay_buffer.append(experience)
+        tp.end()
 
     def reload_states(self):
+        tp = TracePoint(f"{self.task_id}: reload-actor-model", "1")
+        tp.begin()
         reload_deepspeed_states(self.actor.model)
+        tp.end()
 
     def offload_states(self):
+        tp = TracePoint(f"{self.task_id}: offload-critic-model", "1")
+        tp.begin()
         offload_deepspeed_states(self.actor.model)
+        tp.end()
 
     def save_checkpoint(self, tag, client_states):
         args = self.strategy.args

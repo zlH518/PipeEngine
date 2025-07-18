@@ -1,12 +1,19 @@
-1752753470171416,-1,0,1,init-actor,B
-1752753470185758,-1,0,1,init-actor,E
-1752753471889419,-1,0,1,init-actor,B
-1752753471896934,-1,0,1,init-actor,E
-1752753471897007,-1,0,1,init-actor,B
-1752753471904536,-1,0,1,init-actor,E
-1752753471904760,-1,0,1,init-actor,B
-1752753471905317,-1,0,1,init-actor,E
-1752753471906047,-1,0,1,init-actor,B
-1752753471906544,-1,0,1,init-actor,E
-1752753471906611,-1,0,1,init-actor,B
-1752753471907118,-1,0,1,init-actor,E
+1752829459350638,-1,0,1,m-0: init-<openrlhf.trainer.ray.ppo_actor.ActorClass(PolicyModelActor) object at 0x7f78041e92b0>,B
+1752829459418589,-1,0,1,m-0: init-<openrlhf.trainer.ray.ppo_actor.ActorClass(PolicyModelActor) object at 0x7f78041e92b0>,E
+1752829463161365,-1,0,1,m-0: init-engine,B
+1752829463197563,-1,0,1,m-0: init-engine,E
+1752829463197795,-1,0,1,m-0: init-<openrlhf.trainer.ray.launcher.ActorClass(ReferenceModelActor) object at 0x7f7804f8a9f0>,B
+1752829463231816,-1,0,1,m-0: init-<openrlhf.trainer.ray.launcher.ActorClass(ReferenceModelActor) object at 0x7f7804f8a9f0>,E
+1752829463231945,-1,0,1,m-0: init-<openrlhf.trainer.ray.launcher.ActorClass(RewardModelActor) object at 0x7f7804f8af30>,B
+1752829463264837,-1,0,1,m-0: init-<openrlhf.trainer.ray.launcher.ActorClass(RewardModelActor) object at 0x7f7804f8af30>,E
+1752829463265371,-1,0,1,m-1: init-<openrlhf.trainer.ray.ppo_actor.ActorClass(PolicyModelActor) object at 0x7f78041e92b0>,B
+1752829463266404,-1,0,1,m-1: init-<openrlhf.trainer.ray.ppo_actor.ActorClass(PolicyModelActor) object at 0x7f78041e92b0>,E
+1752829463266503,-1,0,1,m-1: init-engine,B
+1752829463268076,-1,0,1,m-1: init-engine,E
+1752829463268193,-1,0,1,m-1: init-<openrlhf.trainer.ray.launcher.ActorClass(ReferenceModelActor) object at 0x7f7804f8a9f0>,B
+1752829463269161,-1,0,1,m-1: init-<openrlhf.trainer.ray.launcher.ActorClass(ReferenceModelActor) object at 0x7f7804f8a9f0>,E
+1752829463269261,-1,0,1,m-1: init-<openrlhf.trainer.ray.launcher.ActorClass(RewardModelActor) object at 0x7f7804f8af30>,B
+1752829463270109,-1,0,1,m-1: init-<openrlhf.trainer.ray.launcher.ActorClass(RewardModelActor) object at 0x7f7804f8af30>,E
+1752829463270193,-1,0,1,m-0: init-trainer,B
+1752829478716089,-1,0,1,m-0: init-trainer,E
+1752829478716209,-1,0,1,m-0: init-model,B

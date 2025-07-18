@@ -144,9 +144,10 @@ class NaiveReplayBuffer(ABC):
     """
 
     def __init__(
-        self, sample_batch_size: int, limit: int = 0, cpu_offload: bool = True, packing_samples: bool = False
+        self, task_id: int, sample_batch_size: int, limit: int = 0, cpu_offload: bool = True, packing_samples: bool = False
     ) -> None:
         super().__init__()
+        self.task_id = task_id
         self.sample_batch_size = sample_batch_size
         # limit <= 0 means unlimited
         self.limit = limit

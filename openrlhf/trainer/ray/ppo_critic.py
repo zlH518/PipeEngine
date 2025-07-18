@@ -26,6 +26,7 @@ from .launcher import BaseModelActor
 class CriticPPOTrainer(ABC):
     def __init__(
         self,
+        task_id,
         strategy,
         critic: torch.nn.Module,
         critic_optim: Optimizer,
@@ -37,6 +38,7 @@ class CriticPPOTrainer(ABC):
         dataloader_pin_memory: bool = True,
         **kwargs,
     ):
+        self.task_id = task_id
         self.strategy = strategy
         self.args = strategy.args
         self.critic = critic
@@ -50,7 +52,7 @@ class CriticPPOTrainer(ABC):
         self.max_epochs = self.args.max_epochs
 
         self.replay_buffer = NaiveReplayBuffer(
-            micro_train_batch_size, buffer_limit, buffer_cpu_offload, getattr(self.args, "packing_samples", False)
+            self.task_id, micro_train_batch_size, buffer_limit, buffer_cpu_offload, getattr(self.args, "packing_samples", False)
         )
 
         self.critic_loss_fn = ValueLoss(value_clip)
@@ -59,6 +61,8 @@ class CriticPPOTrainer(ABC):
         self.aux_loss = self.args.aux_loss_coef > 1e-8
 
     def ppo_train(self):
+        tp = TracePoint(f"{self.task_id}: critic-train-in-trainer", "1")
+        tp.begin()
         # replay buffer may be empty at first, we should rebuild at each training
         not_shuffle = self.strategy.ring_attn_group is not None or self.args.ds_tensor_parallel_size > 1
         dataloader = DataLoader(
@@ -79,15 +83,24 @@ class CriticPPOTrainer(ABC):
                 desc=f"Train epoch [{epoch + 1}/{self.max_epochs}]",
                 disable=not self.strategy.is_rank_0(),
             )
-            for experience in pbar:
+            epoch_tp = TracePoint(f"{self.task_id}: epoch-{epoch}", "1")
+            epoch_tp.begin()
+            for step, experience in enumerate(pbar):
+                step_tp = TracePoint("f{self.task_id}: epoch-{epoch}-step-{step}", "1")
+                step_tp.begin()
                 experience.to_device(device)
                 status = self.training_step(experience)
 
+                allreduce_tp = TracePoint(f"{self.task_id}: all-reduce", "1")
+                allreduce_tp.begin()
                 # for DP
                 status = self.strategy.all_reduce(status)
+                allreduce_tp.end()
 
                 status_list.append(status)
                 pbar.set_postfix(status)
+                step_tp.end()
+            epoch_tp.end()
 
         if status_list:
             status_mean = status_list[0]
@@ -96,9 +109,12 @@ class CriticPPOTrainer(ABC):
                     status_mean[k] += v
             for k in status_mean.keys():
                 status_mean[k] /= len(status_list)
+        tp.end()
         return status_mean
 
     def training_step(self, experience: Experience) -> Dict[str, float]:
+        tp = TracePoint(f"{self.task_id}: train-critic-step", "1")
+        tp.begin()
         self.critic.train()
 
         sequences = experience.sequences
@@ -141,12 +157,16 @@ class CriticPPOTrainer(ABC):
             "values": masked_mean(values, experience.action_mask).detach().item(),
             "critic_lr": self.critic_scheduler.get_last_lr()[0],
         }
+        tp.end()
         return status
 
 
 @ray.remote(num_gpus=1)
 class CriticModelActor(BaseModelActor):
     def init_model_from_pretrained(self, strategy: DeepspeedStrategy, pretrain, max_steps):
+        tracepoint_module_setup()
+        tp = TracePoint(f"{self.task_id}: init-critic-model", "1")
+        tp.begin()
         args = strategy.args
 
         self._setup_distributed(strategy)
@@ -216,6 +236,7 @@ class CriticModelActor(BaseModelActor):
 
         # configure Trainer
         self.trainer = CriticPPOTrainer(
+            self.task_id,
             strategy,
             critic=self.critic,
             critic_optim=self.critic_optim,
@@ -223,6 +244,7 @@ class CriticModelActor(BaseModelActor):
             micro_train_batch_size=args.micro_train_batch_size,
             value_clip=args.value_clip,
         )
+        tp.end()
 
     def forward(
         self,
@@ -250,11 +272,14 @@ class CriticModelActor(BaseModelActor):
 
     def append(self, experience):
         """Append experience to replay buffer."""
+        tp = TracePoint(f"{self.task_id}: save-experience-in-critic-reply-buffer", "1")
+        tp.begin()
         self.trainer.replay_buffer.append(experience)
+        tp.end()
 
     def fit(self):
         """Train critic model with the replay buffer."""
-        tp = TracePoint("train-critic-model", "1")
+        tp = TracePoint(f"{self.task_id}: train-critic-model", "1")
         tp.begin()
         torch.cuda.empty_cache()
         self.critic.train()
@@ -282,7 +307,14 @@ class CriticModelActor(BaseModelActor):
         )
 
     def reload_states(self):
+        tp = TracePoint(f"{self.task_id}: reload-critic-model", "1")
+        tp.begin()
         reload_deepspeed_states(self.critic)
+        tp.end()
+
 
     def offload_states(self):
+        tp = TracePoint(f"{self.task_id}: offload-critic-model", "1")
+        tp.begin()
         offload_deepspeed_states(self.critic)
+        tp.end()

@@ -57,6 +57,7 @@ class BaseLLMRayActor:
             os.environ["VLLM_ENABLE_V1_MULTIPROCESSING"] = "0"
 
         self.kwargs = kwargs
+        self.task_id = kwargs.pop("task_id")
 
         import vllm
 
@@ -72,8 +73,10 @@ class LLMRayActor(BaseLLMRayActor):
         super().__init__(*args, bundle_indices=bundle_indices, **kwargs)
 
         import vllm
-
+        tp = TracePoint(f"m-{self.task_id}: init-vllm.LLM")
+        tp.begin()
         self.llm = vllm.LLM(*args, **self.kwargs)
+        tp.end()
 
     def init_process_group(self, master_address, master_port, rank_offset, world_size, group_name, backend, use_ray):
         return self.llm.collective_rpc(
@@ -91,17 +94,23 @@ class LLMRayActor(BaseLLMRayActor):
         self.llm.llm_engine.reset_prefix_cache()
 
     def sleep(self, level=1):
+        tp = TracePoint(f"{self.task_id}: wake-up-engine")
+        tp.begin()
         self.llm.sleep(level=level)
+        tp.end()
 
     def wake_up(self):
+        tp = TracePoint(f"{self.task_id}: wake-up-engine")
+        tp.begin()
         self.llm.wake_up()
+        tp.end()
 
     def add_requests(self, sampling_params, prompt_token_ids):
         """
         Process requests from rank0 and generate responses.
         Since only rank0 will send requests, we don't need to track actor ranks.
         """
-        tp = TracePoint("put-request-in-queue", "1")
+        tp = TracePoint(f"{self.task_id}: put-request-in-queue", "1")
         tp.begin()
         from vllm.inputs import TokensPrompt
 
@@ -114,7 +123,7 @@ class LLMRayActor(BaseLLMRayActor):
         """
         Return the responses for the actor with the given rank
         """
-        tp = TracePoint("get-responses", "1")
+        tp = TracePoint(f"{self.task_id}: get-responses", "1")
         tp.begin()
         ans = self.response_queues.get()
         tp.end()
@@ -134,8 +143,11 @@ def create_vllm_engines(
     vllm_enable_sleep=False,
     llm_actor_cls=LLMRayActor,
     agent_func_path=None,
-    offset: int =None
+    offset: int =None,
+    task_id: int=None,
 ):
+    assert task_id is not None, "task id must be set"
+    tracepoint_module_setup()
     import vllm
 
     assert vllm.__version__ > "0.8.2", "OpenRLHF only supports vllm > 0.8.2"
@@ -149,6 +161,8 @@ def create_vllm_engines(
     shared_pg, reordered_bundle_indices = shared_pg       
 
     for i in range(num_engines):
+        tp = TracePoint(f"m-{task_id}: init-engine", "1")
+        tp.begin()
         bundle_indices = None
         if tensor_parallel_size > 1:
             bundle_indices = get_bundle_indices(shared_pg, i, tensor_parallel_size)
@@ -182,8 +196,10 @@ def create_vllm_engines(
                 enable_sleep_mode=vllm_enable_sleep,
                 agent_func_path=agent_func_path,
                 offset=offset,
+                task_id=task_id,
             )
         )
+        tp.end()
 
     if vllm_enable_sleep:
         batch_vllm_engine_call(vllm_engines, "sleep")
@@ -214,4 +230,4 @@ async def batch_vllm_engine_call(engines: List[Any], method_name: str, *args, ra
         method = getattr(engine, method_name)
         refs.append(method.remote(*args, **kwargs))
 
-    return asyncio.gather(*refs)
+    return refs

@@ -13,6 +13,7 @@ from openrlhf.trainer.ray.ppo_actor import PolicyModelActor
 from openrlhf.trainer.ray.ppo_critic import CriticModelActor
 from openrlhf.utils import get_strategy
 
+from tracer import  tracepoint_module_setup, TracePoint
 
 class Task:
     """
@@ -40,6 +41,7 @@ class Task:
         }
 
         self.actor_model = RayActorGroup(
+            self.task_id,
             args.actor_num_nodes,
             args.actor_num_gpus_per_node,
             PolicyModelActor,
@@ -82,13 +84,15 @@ class Task:
                 args.vllm_enable_sleep,
                 LLMRayActor,
                 args.agent_func_path,
-                offset=self.offset["vllm"]
+                self.offset["vllm"],
+                self.task_id,
             )
 
         if args.init_kl_coef <= 0:
             self.ref_model = None
         else:
             self.ref_model = RayActorGroup(
+                self.task_id,
                 args.ref_num_nodes,
                 args.ref_num_gpus_per_node,
                 ReferenceModelActor,
@@ -98,22 +102,10 @@ class Task:
                 offset=self.offset["ref"]
             )
 
-        if not args.colocate_all_models:
-            pg = None
-
-        # if colocated, create placement group for critic and reward model explicitly.
-        if args.critic_pretrain and args.colocate_critic_reward:
-            assert (
-                args.critic_num_nodes == args.reward_num_nodes
-                and args.critic_num_gpus_per_node == args.reward_num_gpus_per_node
-            ), f"num_nodes and num_gpus_per_node must be the same when colocate critic and reward model."
-
-            bundles = [{"GPU": 1, "CPU": 1} for _ in range(args.critic_num_nodes * args.critic_num_gpus_per_node)]
-            pg = placement_group(bundles, strategy="PACK")
-            ray.get(pg.ready())
 
         if args.critic_pretrain:
             self.critic_model = RayActorGroup(
+                self.task_id,
                 args.critic_num_nodes,
                 args.critic_num_gpus_per_node,
                 CriticModelActor,
@@ -129,6 +121,7 @@ class Task:
         if not args.remote_rm_url:
             self.reward_pretrain = args.reward_pretrain
             self.reward_model = RayActorGroup(
+                self.task_id,
                 args.reward_num_nodes,
                 args.reward_num_gpus_per_node,
                 RewardModelActor,
@@ -141,9 +134,12 @@ class Task:
             self.reward_model = None
         
         self.ppo_trainer=None
+        tracepoint_module_setup()
 
     
     def init_trainer(self, locks):
+        tp = TracePoint(f"m-{self.task_id}: init-trainer", "1")
+        tp.begin()
         if self.args.async_train:
             from openrlhf.trainer.ppo_trainer_async import PPOTrainerAsync as PPOTrainer
         else:
@@ -171,10 +167,11 @@ class Task:
         )
         # training update steps
         self.max_steps = ray.get(self.ppo_trainer.get_max_steps.remote())
-    
+        tp.end()
+
     def init_model(self):
-
-
+        tp = TracePoint(f"m-{self.task_id}: init-model", "1")
+        tp.begin()
         # init reference/reward/actor model
         refs = []
         if self.ref_model is not None:
@@ -189,17 +186,19 @@ class Task:
             # TODO: use first reward model as critic model
             refs.extend(self.critic_model.async_init_model_from_pretrained(self.strategy, self.args.critic_pretrain, self.max_steps))
             ray.get(refs)
-
+        tp.end()
 
     async def train(self):
         assert self.ppo_trainer is not None, "Trainer is not initialized"
         # train actor and critic model
+        tp = TracePoint(f"m-{self.task_id}: begin-train", "1")
+        tp.begin()
         await self.ppo_trainer.fit.remote()
+        tp.end()
+        # # save model
+        # await asyncio.gather(*self.actor_model.async_save_model())
 
-        # save model
-        await asyncio.gather(*self.actor_model.async_save_model())
-
-        if self.args.critic_pretrain and self.args.save_value_network:
-            await asyncio.gather(*self.critic_model.async_save_model())
+        # if self.args.critic_pretrain and self.args.save_value_network:
+        #     await asyncio.gather(*self.critic_model.async_save_model())
 
 

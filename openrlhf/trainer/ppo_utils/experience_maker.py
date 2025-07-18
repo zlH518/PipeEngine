@@ -238,7 +238,8 @@ def update_samples_with_rewards(rewards_info, samples_list):
 
 
 class SamplesGenerator:
-    def __init__(self, vllm_engines, strategy, tokenizer, prompt_max_len):
+    def __init__(self, vllm_engines, strategy, tokenizer, prompt_max_len, task_id):
+        self.task_id = task_id
         self.strategy = strategy
         self.args = strategy.args
         self.vllm_engines = vllm_engines
@@ -254,15 +255,18 @@ class SamplesGenerator:
         When not using vllm, we will fallback to the default implementation,
         in which actor will be used to generate samples.
         """
+        tp = TracePoint(f"{self.task_id}: wake-up-and-generate", "1")
+        tp.begin()
         # vLLM wakeup when vllm_enable_sleep
         if self.strategy.args.vllm_enable_sleep:
-            wake_up_tp = TracePoint("wake up vllm", "1")
+            wake_up_tp = TracePoint(f"{self.task_id}: wake-up-vllm", "1")
             wake_up_tp.begin()
             from openrlhf.trainer.ray.vllm_engine import batch_vllm_engine_call
 
             await batch_vllm_engine_call(self.vllm_engines, "wake_up")
             wake_up_tp.end()
-        generate_tp = TracePoint("vllm generate", "1")
+
+        generate_tp = TracePoint(f"{self.task_id}: vllm-generate", "1")
         generate_tp.begin()
         rollout_samples = await self._generate_vllm(all_prompts, all_labels, **generate_kwargs)
         generate_tp.end()
@@ -273,6 +277,7 @@ class SamplesGenerator:
             sleep_tp.begin()
             await batch_vllm_engine_call(self.vllm_engines, "sleep")
             sleep_tp.end()
+        tp.end()
         return rollout_samples
 
         # tokenizer
@@ -309,7 +314,7 @@ class SamplesGenerator:
         """
         from vllm import SamplingParams
         from tracer import tracepoint_module_setup, TracePoint
-        tp = TracePoint("pre-processing data", "1")
+        tp = TracePoint(f"{self.task_id}: pre-processing data", "1")
         tp.begin()
         llms = self.vllm_engines
         args = self.strategy.args
@@ -334,7 +339,7 @@ class SamplesGenerator:
         all_prompt_token_ids = self.tokenize_fn(all_prompts, self.prompt_max_len, padding=False)["input_ids"]
         tp.end()
 
-        tp = TracePoint("send request to vllm", "1")
+        tp = TracePoint(f"{self.task_id}: send-request-to-vllm", "1")
         tp.begin()
         # Distribute requests to engines and collect responses
         refs = []
@@ -345,7 +350,7 @@ class SamplesGenerator:
         await asyncio.gather(*refs)
         tp.end()
 
-        tp = TracePoint("get outputs from response", "1")
+        tp = TracePoint(f"{self.task_id}: get-outputs-from-response", "1")
         tp.begin()
         # Retrieve and combine results from all outputs
         all_output_refs = []
@@ -355,7 +360,7 @@ class SamplesGenerator:
         all_outputs = sum(all_outputs_nested, [])
         tp.end()
 
-        tp = TracePoint("post-processing-data", "1")
+        tp = TracePoint(f"{self.task_id}: post-processing-data", "1")
         tp.begin()
         pad_token_id, eos_token_id = self.tokenizer.pad_token_id, self.tokenizer.eos_token_id
 
@@ -407,7 +412,7 @@ class SamplesGenerator:
         # This is required by dynamic sampling
         remote_reward_model = kwargs.get("remote_reward_model", None)
         if remote_reward_model:
-            tp = TracePoint("get-remote-reward-model-output", "1")
+            tp = TracePoint(f"{self.task_id}: get-remote-reward-model-output", "1")
             tp.begin()
             all_queries = sum(
                 [
@@ -440,10 +445,12 @@ class RemoteExperienceMaker(ABC):
         strategy=None,
         tokenizer=None,
         remote_reward_model=None,
+        task_id = None,
         **kwargs,
     ):
         super().__init__()
 
+        self.task_id = task_id
         self.actor_model_group = actor_model_group
         self.critic_model_group = critic_model_group
         self.reward_model_group = reward_model_group
@@ -471,8 +478,7 @@ class RemoteExperienceMaker(ABC):
         # Concat the samples into micro_rollout_batch_size
         # Each batch of samples will be scheduled to a effective Ray Actor (i.e, a DP rank)
         # TODO: balance the number of tokens of each batch for better performance
-        from tracer import TracePoint, tracepoint_module_setup
-        tp = TracePoint("pre-processing-data", "1")
+        tp = TracePoint(f"{self.task_id}: pre-processing-data", "1")
         tp.begin()
         samples_list = []
         batch_size = self.args.micro_rollout_batch_size
@@ -483,14 +489,17 @@ class RemoteExperienceMaker(ABC):
             samples_list.append(concat_samples)
         tp.end()
 
-        tp = TracePoint("actor-critic-reward-ref-forward", "1")
+        tp = TracePoint(f"{self.task_id}: actor-critic-reward-ref-forward", "1")
         tp.begin()
         # Make experiences (models forward: logprobs, values, rewards, and kl divergence)
         experiences = await self.make_experience(samples_list)
         tp.end()
 
+        tp = TracePoint(f"{self.task_id}: compute-advantage-and-return", "1")
+        tp.begin()
         # Process experiences (reward shaping, etc.)
         experiences = self.compute_advantages_and_returns(experiences)
+        tp.end()
         return experiences
 
     @torch.no_grad()
@@ -498,8 +507,7 @@ class RemoteExperienceMaker(ABC):
         """
         Turn samples into experience by calculating logprobs, values, rewards, and kl divergence.
         """
-        from tracer import TracePoint, tracepoint_module_setup
-        tp = TracePoint("pre-process-make-experience", "1")
+        tp = TracePoint(f"{self.task_id}: pre-processing-data", "1")
         tp.begin()
         start_time = time.time()
         logger.info(f"🚀 Starting experience making with {len(samples_list[0].sequences) * len(samples_list)} samples")
@@ -514,6 +522,9 @@ class RemoteExperienceMaker(ABC):
         action_mask_list = [s.action_mask for s in samples_list]
 
         tp.end()
+
+        tp = TracePoint(f"{self.task_id}: reward-model-get-reward", "1")
+        tp.begin()
         # The rewards are already filled in the samples_list, such as the agent's environment rewards
         if samples_list[0].rewards is not None:
             pass
@@ -537,7 +548,10 @@ class RemoteExperienceMaker(ABC):
                 attention_mask=attention_mask_list,
                 pad_sequence=[True] * len(samples_list),
             )
+        tp.end()
 
+        tp = TracePoint(f"{self.task_id}: actor-model-get-logits", "1")
+        tp.begin()
         # Sync to avoid GPU OOM when colocate models
         if args.colocate_all_models and not self.remote_rm_url:
             await asyncio.gather(*r_refs)
@@ -551,7 +565,10 @@ class RemoteExperienceMaker(ABC):
             action_mask=action_mask_list,
             attention_mask=attention_mask_list,
         )
+        tp.end()
 
+        tp = TracePoint(f"{self.task_id}: critic-model-get-logits", "1")
+        tp.begin()
         # Sync to avoid GPU OOM when colocate models
         if args.colocate_all_models or args.colocate_actor_ref:
             await asyncio.gether(*action_log_probs_ref)
@@ -577,7 +594,10 @@ class RemoteExperienceMaker(ABC):
                 await asyncio.gather(*critic_empty_cache_refs)
         else:
             value_ref = ray.put([[None]] * (len(samples_list) * args.ring_attn_size * args.ds_tensor_parallel_size))
+        tp.end()
 
+        tp = TracePoint(f"{self.task_id}: ref-model-get-logits", "1")
+        tp.begin()
         # Batch call initial model
         if self.initial_model_group is not None:
             base_action_log_probs_ref = self.initial_model_group.async_run_method_batch(
@@ -595,6 +615,7 @@ class RemoteExperienceMaker(ABC):
             base_action_log_probs_ref = ray.put(
                 [[None]] * (len(samples_list) * args.ring_attn_size * args.ds_tensor_parallel_size)
             )
+        tp.end()
 
         # Wait for all remote calls to complete and flatten the results
         # Note: the results duplicated ring_attn_size * ds_tensor_parallel_size times
@@ -604,6 +625,8 @@ class RemoteExperienceMaker(ABC):
         base_action_log_probs_result = await asyncio.gather(*base_action_log_probs_ref)
         value_result = await value_ref
 
+        tp = TracePoint(f"{self.task_id}: post-processing-data", "1")
+        tp.begin()
         action_log_probs_list = sum(action_log_probs_result[::duplicate_factor], [])
         base_action_log_probs_list = sum(base_action_log_probs_result[::duplicate_factor], [])
         value_list = sum(value_result[::duplicate_factor], [])
@@ -656,6 +679,7 @@ class RemoteExperienceMaker(ABC):
         duration = end_time - start_time
         time_str = str(timedelta(seconds=duration)).split(".")[0]
         logger.info(f"✨ Experience making completed in {time_str}")
+        tp.end()
         return samples_list
 
     @torch.no_grad()
@@ -669,6 +693,8 @@ class RemoteExperienceMaker(ABC):
         - experiences: List of Experience
         - rewards: List of rewards
         """
+        tp = TracePoint(f"{self.task_id}: compute-advantage-and-return", "1")
+        tp.begin()
         args = self.strategy.args
 
         # get rewards from experiences
@@ -763,7 +789,7 @@ class RemoteExperienceMaker(ABC):
             # Apply normalization to each experience
             for exp in experiences:
                 exp.advantages = (exp.advantages - mean) * rstd
-
+        tp.end()
         return experiences
 
     @torch.no_grad()

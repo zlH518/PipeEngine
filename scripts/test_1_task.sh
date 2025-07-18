@@ -23,7 +23,7 @@ python3 -m openrlhf.cli.train_multi_tasks \
 --actor_num_gpus_per_node 1 \
 --vllm_num_engines 1 \
 --vllm_tensor_parallel_size 1 \
---vllm_gpu_memory_utilization 0.5 \
+--vllm_gpu_memory_utilization 0.4 \
 --advantage_estimator group_norm \
 --pretrain /volume/pt-train/models/Qwen3-0.6B \
 --reward_pretrain /volume/pt-train/models/Qwen3-0.6B \
@@ -53,6 +53,7 @@ python3 -m openrlhf.cli.train_multi_tasks \
 --enforce_eager \
 --deepspeed_enable_sleep \
 --vllm_enable_sleep \
+--ref_reward_offload \
 # --use_wandb c6cdaea552faf34cbfa1a02c8e055c715ebe6b7b \
 # --wandb_org 1763777829-xxx \
 # --wandb_project test_init \
