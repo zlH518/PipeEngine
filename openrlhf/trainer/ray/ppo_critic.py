@@ -86,7 +86,7 @@ class CriticPPOTrainer(ABC):
             epoch_tp = TracePoint(f"{self.task_id}: epoch-{epoch}", "1")
             epoch_tp.begin()
             for step, experience in enumerate(pbar):
-                step_tp = TracePoint("f{self.task_id}: epoch-{epoch}-step-{step}", "1")
+                step_tp = TracePoint(f"{self.task_id}: epoch-{epoch}-step-{step}", "1")
                 step_tp.begin()
                 experience.to_device(device)
                 status = self.training_step(experience)

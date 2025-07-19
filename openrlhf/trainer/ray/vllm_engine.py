@@ -73,7 +73,7 @@ class LLMRayActor(BaseLLMRayActor):
         super().__init__(*args, bundle_indices=bundle_indices, **kwargs)
 
         import vllm
-        tp = TracePoint(f"m-{self.task_id}: init-vllm.LLM")
+        tp = TracePoint(f"m-{self.task_id}: init-vllm.LLM", "1")
         tp.begin()
         self.llm = vllm.LLM(*args, **self.kwargs)
         tp.end()
@@ -94,13 +94,13 @@ class LLMRayActor(BaseLLMRayActor):
         self.llm.llm_engine.reset_prefix_cache()
 
     def sleep(self, level=1):
-        tp = TracePoint(f"{self.task_id}: wake-up-engine")
+        tp = TracePoint(f"{self.task_id}: wake-up-engine", "1")
         tp.begin()
         self.llm.sleep(level=level)
         tp.end()
 
     def wake_up(self):
-        tp = TracePoint(f"{self.task_id}: wake-up-engine")
+        tp = TracePoint(f"{self.task_id}: wake-up-engine", "1")
         tp.begin()
         self.llm.wake_up()
         tp.end()
@@ -129,7 +129,7 @@ class LLMRayActor(BaseLLMRayActor):
         tp.end()
         return ans
 
-def create_vllm_engines(
+async def create_vllm_engines(
     num_engines: int,
     tensor_parallel_size: int,
     pretrain: str,
@@ -202,7 +202,7 @@ def create_vllm_engines(
         tp.end()
 
     if vllm_enable_sleep:
-        batch_vllm_engine_call(vllm_engines, "sleep")
+        await batch_vllm_engine_call(vllm_engines, "sleep")
 
     return vllm_engines
 
@@ -230,4 +230,4 @@ async def batch_vllm_engine_call(engines: List[Any], method_name: str, *args, ra
         method = getattr(engine, method_name)
         refs.append(method.remote(*args, **kwargs))
 
-    return refs
+    return asyncio.gather(*refs)

@@ -22,9 +22,12 @@ class PipeEngine(metaclass=SingletonMeta):
         self.pgs = create_placement_groups(self.tasks_args[0])
 
         self.tasks = [Task(args, task_id+1, self.pgs, self.task_num) for task_id, args in enumerate(self.tasks_args)]
+
+
+    async def init_tasks(self):
         # breakpoint()
         for task in self.tasks:
-            task.init_trainer(self.locks)
+            await task.init_trainer(self.locks)
             task.init_model()
 
 

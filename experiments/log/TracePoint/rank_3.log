@@ -1,2 +1,12 @@
-1752829478722458,3,0,1,0: init-reward-model,B
-1752829483347343,3,0,1,0: init-reward-model,E
+1752832705115843,3,0,1,1: init-reward-model,B
+1752832708719622,3,0,1,1: init-reward-model,E
+1752832744133586,3,0,1,2: init-reward-model,B
+1752832747743342,3,0,1,2: init-reward-model,E
+1752832758786183,3,0,1,2: reward-forward,B
+1752832759261260,3,0,1,2: reward-forward,E
+1752832759402103,3,0,1,1: reward-forward,B
+1752832759875845,3,0,1,1: reward-forward,E
+1752832771109131,3,0,1,2: reward-forward,B
+1752832771849035,3,0,1,2: reward-forward,E
+1752832772535080,3,0,1,1: reward-forward,B
+1752832773799546,3,0,1,1: reward-forward,E

@@ -40,6 +40,9 @@ class Task:
             "reward": 3
         }
 
+    
+    async def init_trainer(self, locks):
+        args = self.args
         self.actor_model = RayActorGroup(
             self.task_id,
             args.actor_num_nodes,
@@ -70,7 +73,7 @@ class Task:
             else:
                 from openrlhf.trainer.ray.vllm_engine import LLMRayActor
 
-            self.vllm_engines = create_vllm_engines(
+            self.vllm_engines = await create_vllm_engines(
                 args.vllm_num_engines,
                 args.vllm_tensor_parallel_size,
                 args.pretrain,
@@ -136,8 +139,7 @@ class Task:
         self.ppo_trainer=None
         tracepoint_module_setup()
 
-    
-    def init_trainer(self, locks):
+
         tp = TracePoint(f"m-{self.task_id}: init-trainer", "1")
         tp.begin()
         if self.args.async_train:
