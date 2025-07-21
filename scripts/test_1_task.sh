@@ -27,15 +27,15 @@ python3 -m openrlhf.cli.train_multi_tasks \
 --advantage_estimator group_norm \
 --pretrain /volume/pt-train/models/Qwen3-0.6B \
 --reward_pretrain /volume/pt-train/models/Qwen3-0.6B \
---save_path /root/data/experiments/final/qwen3-06b-rlhf \
---ckpt_path /root/data/experiments/ckpt/qwen3-06b-rlhf \
+--save_path /workspace/data/experiments/final/qwen3-06b-rlhf \
+--ckpt_path /workspace/data/experiments/ckpt/qwen3-06b-rlhf \
 --save_hf_ckpt \
---micro_train_batch_size 4 \
---train_batch_size 4 \
---micro_rollout_batch_size 4 \
---rollout_batch_size 2 \
---n_samples_per_prompt 2 \
---max_samples 4 \
+--micro_train_batch_size 16 \
+--train_batch_size 16 \
+--micro_rollout_batch_size 16 \
+--rollout_batch_size 16 \
+--n_samples_per_prompt 8 \
+--max_samples 128 \
 --max_epochs 1 \
 --prompt_max_len 1024 \
 --generate_max_len 1024 \
@@ -44,7 +44,7 @@ python3 -m openrlhf.cli.train_multi_tasks \
 --actor_learning_rate 5e-7 \
 --critic_learning_rate 9e-6 \
 --init_kl_coef 1e-3 \
---prompt_data /root/data/gsm8k/train.parquet \
+--prompt_data /workspace/data/gsm8k/train.parquet \
 --input_key prompt \
 --apply_chat_template \
 --normalize_reward \

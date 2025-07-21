@@ -1,5 +1,5 @@
 
-_ROOT_LOGGER_PATH = "/root/PipeEngine_v0_add_log/experiments/log/"
+_ROOT_LOGGER_PATH = "/workspace/data/experiments/log/"
 
 def torch_available():
     """

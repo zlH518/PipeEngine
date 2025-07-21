@@ -184,7 +184,7 @@ class BasePPOTrainer(ABC):
             await batch_vllm_engine_call(self.vllm_engines, "sleep")
         tp.end()
 
-    async def save_logs_and_checkpoints(self, args, global_step, step_bar, logs_dict={}, client_states={}):
+    async def save_logs_and_checkpoints(self, args, global_step, logs_dict={}, client_states={}):
         if global_step % args.logging_steps == 0:
             # wandb
             if self._wandb is not None:
@@ -466,146 +466,113 @@ class PPOTrainer(BasePPOTrainer):
         if self.args.save_steps == -1:
             self.args.save_steps = float("inf")  # do not save ckpt
         tracepoint_module_setup()
+    
+    async def get_args(self):
+        return self.args
+    
+    async def get_prompts_dataloader(self):
+        return self.prompts_dataloader
+
+    async def get_wandb(self):
+        return self._wandb
+    
+    async def finish_wandb(self):
+        self._wandb.finish()
+    
+    async def get_tensorboard(self):
+        return self._tensorboard
+    
+    async def close_tensorboard(self):
+        self._tensorboard.close()
 
     async def load_ckpt(self):
-        async with self.load_ckpt_lock:
-            print(f"task-{self.task_id} get the load ckpt lock")
-            args = self.args
-            tracepoint_module_setup()
+        print(f"task-{self.task_id} get the load ckpt lock")
+        args = self.args
+        tracepoint_module_setup()
 
-            tp = TracePoint(f"m-{self.task_id}: load-ckpt", "1")
-            tp.begin()
-            # broadcast init checkpoint to vllm
-            ckpt_path = os.path.join(args.ckpt_path, "_actor")
-            if args.load_checkpoint and os.path.exists(ckpt_path):
-                checkpoint_states = (await self.actor_model_group.async_run_method(method_name="get_checkpoint_states"))[0]
-                print(checkpoint_states)
-                logger.info(f"checkpoint_states: {checkpoint_states}")
-                await self._broadcast_to_vllm()
-            else:
-                checkpoint_states = {"global_step": 0, "episode": 0, "data_loader_state_dict": {}}
+        tp = TracePoint(f"m-{self.task_id}: load-ckpt", "1")
+        tp.begin()
+        # broadcast init checkpoint to vllm
+        ckpt_path = os.path.join(args.ckpt_path, "_actor")
+        if args.load_checkpoint and os.path.exists(ckpt_path):
+            checkpoint_states = (await self.actor_model_group.async_run_method(method_name="get_checkpoint_states"))[0]
+            print(checkpoint_states)
+            logger.info(f"checkpoint_states: {checkpoint_states}")
+            await self._broadcast_to_vllm()
+        else:
+            checkpoint_states = {"global_step": 0, "episode": 0, "data_loader_state_dict": {}}
 
-            # Restore step and start_epoch
-            steps = checkpoint_states["global_step"] + 1
-            episode = checkpoint_states["episode"]
-            data_loader_state_dict = checkpoint_states["data_loader_state_dict"]
-            if data_loader_state_dict:
-                self.prompts_dataloader.load_state_dict(data_loader_state_dict)
-            tp.end()
-            print(f"task-{self.task_id} release the load ckpt lock")
-            return steps
+        # Restore step and start_epoch
+        steps = checkpoint_states["global_step"] + 1
+        episode = checkpoint_states["episode"]
+        data_loader_state_dict = checkpoint_states["data_loader_state_dict"]
+        if data_loader_state_dict:
+            self.prompts_dataloader.load_state_dict(data_loader_state_dict)
+        tp.end()
+        print(f"task-{self.task_id} release the load ckpt lock")
+        return steps
 
     async def rollout(self, rand_prompts, labels, number_of_samples):
-        async with self.rollout_lock:
-            print(f"task-{self.task_id} get the rollout lock")
-            tp = TracePoint(f"m-{self.task_id}: rollout", "1")
-            tp.begin()
-            remote_reward_model = self.remote_reward_model if self.args.dynamic_filtering else None
-            rollout_samples = await self.samples_generator.generate_samples(
-                rand_prompts, labels, remote_reward_model=remote_reward_model, **self.generate_kwargs
-            )
+        print(f"task-{self.task_id} get the rollout lock")
+        tp = TracePoint(f"m-{self.task_id}: rollout", "1")
+        tp.begin()
+        remote_reward_model = self.remote_reward_model if self.args.dynamic_filtering else None
+        rollout_samples = await self.samples_generator.generate_samples(
+            rand_prompts, labels, remote_reward_model=remote_reward_model, **self.generate_kwargs
+        )
 
-            tp.end()
-            print(f"task-{self.task_id} release the rollout lock")
-            return rollout_samples
+        tp.end()
+        print(f"task-{self.task_id} release the rollout lock")
+        return rollout_samples
     
     async def make_experiences(self, rollout_samples):
-        async with self.make_experiences_lock:
-            print(f"task-{self.task_id} get the make experiences lock")
-            experiences_tp = TracePoint(f"{self.task_id}: make-experiences", "1")
-            experiences_tp.begin()
-            experiences = await self.experience_maker.make_experience_batch(rollout_samples)
-            experiences_tp.end()
+        print(f"task-{self.task_id} get the make experiences lock")
+        experiences_tp = TracePoint(f"{self.task_id}: make-experiences", "1")
+        experiences_tp.begin()
+        experiences = await self.experience_maker.make_experience_batch(rollout_samples)
+        experiences_tp.end()
 
-            sample0 = self.tokenizer.batch_decode(
-                experiences[0].sequences[0].unsqueeze(0), skip_special_tokens=True
+        sample0 = self.tokenizer.batch_decode(
+            experiences[0].sequences[0].unsqueeze(0), skip_special_tokens=True
+        )
+        print(f"example of sample: {sample0}")
+
+        save_experiences_tp = TracePoint(f"{self.task_id}: save-experiences-actor-critic", "1")
+        save_experiences_tp.begin()
+        refs = self.actor_model_group.async_run_method_batch(method_name="append", experience=experiences)
+        if self.critic_model_group is not None:
+            refs.extend(
+                self.critic_model_group.async_run_method_batch(method_name="append", experience=experiences)
             )
-            print(f"example of sample: {sample0}")
-
-            save_experiences_tp = TracePoint(f"{self.task_id}: save-experiences-actor-critic", "1")
-            save_experiences_tp.begin()
-            refs = self.actor_model_group.async_run_method_batch(method_name="append", experience=experiences)
-            if self.critic_model_group is not None:
-                refs.extend(
-                    self.critic_model_group.async_run_method_batch(method_name="append", experience=experiences)
-                )
-            await asyncio.gather(*refs)
-            save_experiences_tp.end()
-            return sample0, experiences
+        await asyncio.gather(*refs)
+        save_experiences_tp.end()
+        return sample0, experiences
     
     async def train_actor_critic(self, steps):
-        async with self.train_actor_critic_lock:
-            print(f"task-{self.task_id} get the train lock")
-            train_tp = TracePoint(f"{self.task_id}: train-actor-critic", "1")
-            train_tp.begin()
-            status = await self.ppo_train(steps)
-            train_tp.end()
-            return status
+        print(f"task-{self.task_id} get the train lock")
+        train_tp = TracePoint(f"{self.task_id}: train-actor-critic", "1")
+        train_tp.begin()
+        status = await self.ppo_train(steps)
+        train_tp.end()
+        return status
     
-    async def save_train_info(self, status, args, pbar, steps, sample0, experiences, episode):
-        async with self.save_train_info_lock:
-            save_info_tp = TracePoint(f"{self.task_id}: save-train-info", "1")
-            save_info_tp.begin()
-            if "kl" in status:
-                self.kl_ctl.update(status["kl"], args.rollout_batch_size * args.n_samples_per_prompt)
+    async def save_train_info(self, status, args, steps, sample0, experiences, episode):
+        save_info_tp = TracePoint(f"{self.task_id}: save-train-info", "1")
+        save_info_tp.begin()
+        if "kl" in status:
+            self.kl_ctl.update(status["kl"], args.rollout_batch_size * args.n_samples_per_prompt)
 
-            logger.info(f"✨ Global step {steps}: {status}")
-            status["generated_samples"] = [sample0[0], experiences[0].info["reward"][0]]
+        logger.info(f"✨ Global step {steps}: {status}")
+        status["generated_samples"] = [sample0[0], experiences[0].info["reward"][0]]
 
-            # logs/checkpoints
-            client_states = {
-                "global_step": steps,
-                "episode": episode,
-                "data_loader_state_dict": self.prompts_dataloader.state_dict(),
-            }
-            await self.save_logs_and_checkpoints(args, steps, pbar, status, client_states)
-            save_info_tp.end()
-
+        # logs/checkpoints
+        client_states = {
+            "global_step": steps,
+            "episode": episode,
+            "data_loader_state_dict": self.prompts_dataloader.state_dict(),
+        }
+        await self.save_logs_and_checkpoints(args, steps, status, client_states)
+        save_info_tp.end()
 
 
-    async def fit(self) -> None:
-        print("Starting concurrent training tasks...")
 
-        args = self.args
-        print(f"Task {self.task_id}: Starting...")
-
-        steps = await self.load_ckpt()
-        print(f"Task {self.task_id}: Initial steps: {steps}")
-
-        for episode in range(0, args.num_episodes):
-            tp = TracePoint(f"m-{self.task_id}: episode-{episode}", "1")
-            tp.begin()
-            pbar = tqdm(
-                range(self.prompts_dataloader.__len__()),
-                desc=f"Task {self.task_id} Episode [{episode + 1}/{args.num_episodes}]",
-                disable=False,
-                leave=False
-            )
-
-            number_of_samples = 0
-            for _, rand_prompts, labels in self.prompts_dataloader: 
-                tp2 = TracePoint(f"m-{self.task_id}: episode-{episode}--samples-{number_of_samples}", "1")
-                tp2.begin()
-                rollout_samples = await self.rollout(rand_prompts, labels, number_of_samples)
-                pbar.update()
-
-                sample0, experiences = await self.make_experiences(rollout_samples)
-                status = await self.train_actor_critic(steps)
-                await self.save_train_info(status=status, args=args, pbar=pbar, steps=steps, sample0=sample0, experiences=experiences, episode=episode)
-
-                steps += 1
-                number_of_samples += 1
-                tp2.end()
-
-            pbar.close()
-            print(f"Task {self.task_id}: Episode {episode + 1} finished, current steps: {steps}")
-            tp.end()
-
-        print(f"Task {self.task_id}: All episodes completed.")
-
-        if self._wandb is not None:
-            self._wandb.finish()
-        if self._tensorboard is not None:
-            self._tensorboard.close()
-
-        print("All concurrent training tasks finished.")

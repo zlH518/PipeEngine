@@ -1,0 +1,35 @@
+1753078156867481,-1,0,1,m-1: init-<openrlhf.trainer.ray.ppo_actor.ActorClass(PolicyModelActor) object at 0x14f8e93d0c40>,B
+1753078156878384,-1,0,1,m-1: init-<openrlhf.trainer.ray.ppo_actor.ActorClass(PolicyModelActor) object at 0x14f8e93d0c40>,E
+1753078158279966,-1,0,1,m-1: init-engine,B
+1753078158287417,-1,0,1,m-1: init-engine,E
+1753078158287819,-1,0,1,m-1: init-<openrlhf.trainer.ray.launcher.ActorClass(ReferenceModelActor) object at 0x14f8f59bc520>,B
+1753078158294608,-1,0,1,m-1: init-<openrlhf.trainer.ray.launcher.ActorClass(ReferenceModelActor) object at 0x14f8f59bc520>,E
+1753078158294666,-1,0,1,m-1: init-<openrlhf.trainer.ray.launcher.ActorClass(RewardModelActor) object at 0x14f8f59bcca0>,B
+1753078158301490,-1,0,1,m-1: init-<openrlhf.trainer.ray.launcher.ActorClass(RewardModelActor) object at 0x14f8f59bcca0>,E
+1753078158301543,-1,0,1,m-1: init-trainer,B
+1753078187759745,-1,0,1,m-1: init-trainer,E
+1753078187759834,-1,0,1,m-1: init-model,B
+1753078187761142,-1,0,1,m-2: init-<openrlhf.trainer.ray.ppo_actor.ActorClass(PolicyModelActor) object at 0x14f8e93d0c40>,B
+1753078187761669,-1,0,1,m-2: init-<openrlhf.trainer.ray.ppo_actor.ActorClass(PolicyModelActor) object at 0x14f8e93d0c40>,E
+1753078187761719,-1,0,1,m-2: init-engine,B
+1753078187762179,-1,0,1,m-2: init-engine,E
+1753078187762334,-1,0,1,m-2: init-<openrlhf.trainer.ray.launcher.ActorClass(ReferenceModelActor) object at 0x14f8f59bc520>,B
+1753078187762813,-1,0,1,m-2: init-<openrlhf.trainer.ray.launcher.ActorClass(ReferenceModelActor) object at 0x14f8f59bc520>,E
+1753078187762851,-1,0,1,m-2: init-<openrlhf.trainer.ray.launcher.ActorClass(RewardModelActor) object at 0x14f8f59bcca0>,B
+1753078187763139,-1,0,1,m-2: init-<openrlhf.trainer.ray.launcher.ActorClass(RewardModelActor) object at 0x14f8f59bcca0>,E
+1753078187763172,-1,0,1,m-2: init-trainer,B
+1753078217438805,-1,0,1,m-2: init-trainer,E
+1753078217438903,-1,0,1,m-2: init-model,B
+1753078217439887,-1,0,1,m-3: init-<openrlhf.trainer.ray.ppo_actor.ActorClass(PolicyModelActor) object at 0x14f8e93d0c40>,B
+1753078217440371,-1,0,1,m-3: init-<openrlhf.trainer.ray.ppo_actor.ActorClass(PolicyModelActor) object at 0x14f8e93d0c40>,E
+1753078217440420,-1,0,1,m-3: init-engine,B
+1753078217440868,-1,0,1,m-3: init-engine,E
+1753078217441009,-1,0,1,m-3: init-<openrlhf.trainer.ray.launcher.ActorClass(ReferenceModelActor) object at 0x14f8f59bc520>,B
+1753078217441309,-1,0,1,m-3: init-<openrlhf.trainer.ray.launcher.ActorClass(ReferenceModelActor) object at 0x14f8f59bc520>,E
+1753078217441349,-1,0,1,m-3: init-<openrlhf.trainer.ray.launcher.ActorClass(RewardModelActor) object at 0x14f8f59bcca0>,B
+1753078217441605,-1,0,1,m-3: init-<openrlhf.trainer.ray.launcher.ActorClass(RewardModelActor) object at 0x14f8f59bcca0>,E
+1753078217441631,-1,0,1,m-3: init-trainer,B
+1753078246635023,-1,0,1,m-3: init-trainer,E
+1753078246635120,-1,0,1,m-3: init-model,B
+1753078246637123,-1,0,1,m-1: init-model,E
+1753078246637202,-1,0,1,m-2: init-model,E

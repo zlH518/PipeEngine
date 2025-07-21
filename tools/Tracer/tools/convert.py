@@ -17,13 +17,13 @@ parser.add_argument(
     "--input-file",
     help="Input log file path (e.g., rank_0.log)",
     type=str,
-    default = "/root/PipeEngine_v0_add_log/experiments/log/TracePoint"
+    default = "/workspace/data/experiments/log/TracePoint"
 )
 parser.add_argument(
     "--output-file",
     help="Output JSON file path (e.g., trace.json)",
     type=str,
-    default = "/root/PipeEngine_v0_add_log/experiments/json/718"
+    default = "/workspace/data/experiments/json/721-2"
 )
 parser.add_argument(
     "--min-time",

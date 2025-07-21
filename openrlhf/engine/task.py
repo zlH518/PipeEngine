@@ -41,7 +41,7 @@ class Task:
         }
 
     
-    async def init_trainer(self, locks):
+    async def init_task(self, locks):
         args = self.args
         self.actor_model = RayActorGroup(
             self.task_id,
@@ -170,8 +170,6 @@ class Task:
         # training update steps
         self.max_steps = ray.get(self.ppo_trainer.get_max_steps.remote())
         tp.end()
-
-    def init_model(self):
         tp = TracePoint(f"m-{self.task_id}: init-model", "1")
         tp.begin()
         # init reference/reward/actor model
@@ -181,13 +179,13 @@ class Task:
         refs.extend(self.actor_model.async_init_model_from_pretrained(self.strategy, self.args.pretrain, self.max_steps, self.vllm_engines))
         if not self.args.remote_rm_url:
             refs.extend(self.reward_model.async_init_model_from_pretrained(self.strategy, self.reward_pretrain))
-        ray.get(refs)
+        await asyncio.gather(*refs)
 
         if self.args.critic_pretrain:
             # critic scheduler initialization depends on max_step, so we have to init critic after actor
             # TODO: use first reward model as critic model
             refs.extend(self.critic_model.async_init_model_from_pretrained(self.strategy, self.args.critic_pretrain, self.max_steps))
-            ray.get(refs)
+            asyncio.gather(*refs)
         tp.end()
 
     async def train(self):

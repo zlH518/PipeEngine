@@ -5,7 +5,7 @@ import asyncio
 from openrlhf.utils import load_task_args
 from openrlhf.engine import PipeEngine
 
-NUM_TASKS=2
+NUM_TASKS=3
 
 async def main():
     args = load_task_args()
